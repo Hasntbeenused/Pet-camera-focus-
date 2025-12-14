@@ -1163,8 +1163,6 @@
       // Also connect to device output (so you hear it even without PiP)
       masterGain.connect(audioCtx.destination);
 
-      registerBuiltInSounds();
-
       // Start animation early
       startAnimation();
 
@@ -1225,6 +1223,8 @@
    * Settings bindings
    **********************/
   function initUI(){
+    registerBuiltInSounds();
+
     const s = loadSettings();
     $("intervalInp").value = s.interval;
     $("volRange").value = s.volume;
