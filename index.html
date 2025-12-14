@@ -1,0 +1,1356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <title>Dog Attention – PiP Sound</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <style>
+    :root{
+      --bg:#0f1115;
+      --panel:#141824;
+      --panel2:#0f1420;
+      --text:#f2f4f8;
+      --muted:#aab2c5;
+      --accent:#7bd389;
+      --danger:#ff6b6b;
+      --warn:#ffd166;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+      --tap: 54px;
+      --gap: 12px;
+      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    * { box-sizing: border-box; }
+    body{
+      margin:0; font-family:var(--font); color:var(--text); background:radial-gradient(1200px 800px at 50% -10%, #1a2440 0%, var(--bg) 45%);
+      -webkit-tap-highlight-color: transparent;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    header{
+      padding: 18px 16px 10px;
+      position: sticky; top:0; backdrop-filter: blur(10px);
+      background: linear-gradient(to bottom, rgba(15,17,21,.92), rgba(15,17,21,.55));
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      z-index: 5;
+    }
+    h1{ margin:0; font-size: 18px; letter-spacing:.2px;}
+    .sub{ margin-top: 6px; color:var(--muted); font-size: 13px; line-height:1.35;}
+    main{ padding: 12px 16px 22px; max-width: 920px; margin: 0 auto; }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: var(--gap);
+    }
+    @media (min-width: 900px){
+      .grid{ grid-template-columns: 1.2fr .8fr; align-items:start; }
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(20,24,36,.95), rgba(15,20,32,.95));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    label{ font-size: 12px; color: var(--muted); display:block; margin-bottom: 6px; }
+    select, input[type="number"], input[type="range"], button, .pill{
+      width:100%;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(10,12,18,.55);
+      color: var(--text);
+      padding: 12px 12px;
+      font-size: 16px;
+      outline: none;
+    }
+    input[type="number"]{ -moz-appearance:textfield; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+    input[type="range"]{ padding: 14px 12px; }
+    button{
+      min-height: var(--tap);
+      cursor:pointer;
+      background: linear-gradient(180deg, rgba(123,211,137,.18), rgba(123,211,137,.10));
+    }
+    button.secondary{ background: rgba(255,255,255,.06); }
+    button.danger{ background: linear-gradient(180deg, rgba(255,107,107,.22), rgba(255,107,107,.08)); }
+    button:active{ transform: translateY(1px); }
+    .two{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .three{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .status{
+      display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .pill{
+      width:auto;
+      padding: 8px 10px;
+      font-size:12px;
+      background: rgba(255,255,255,.05);
+    }
+    .pill.good{ border-color: rgba(123,211,137,.35); color: #b9f5c2; }
+    .pill.warn{ border-color: rgba(255,209,102,.35); color: #ffe4a6; }
+    .pill.bad{ border-color: rgba(255,107,107,.35); color: #ffb3b3; }
+    .hint{
+      color: var(--muted);
+      font-size: 12px;
+      line-height:1.4;
+      margin-top: 8px;
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    details{ margin-top: 10px; }
+    summary{ cursor:pointer; color: var(--muted); }
+    .divider{ height:1px; background: rgba(255,255,255,.08); margin: 12px 0; }
+    .small{ font-size: 12px; color: var(--muted); }
+    .canvasWrap{
+      display:flex; align-items:center; justify-content:center;
+      border-radius: var(--radius);
+      background: radial-gradient(600px 220px at 50% 40%, rgba(123,211,137,.18), rgba(0,0,0,0));
+      border: 1px dashed rgba(255,255,255,.12);
+      padding: 12px;
+    }
+    canvas{ width:100%; max-width: 520px; aspect-ratio: 16 / 9; border-radius: 16px; background: rgba(0,0,0,.20); }
+    .kbd{
+      border: 1px solid rgba(255,255,255,.20);
+      border-bottom-width: 2px;
+      border-radius: 10px;
+      padding: 2px 6px;
+      font-size: 12px;
+      color: var(--text);
+      background: rgba(255,255,255,.05);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .recordRow button{ width:auto; flex:1; }
+    .recordRow{ display:flex; gap:10px; flex-wrap:wrap; }
+    audio{ width:100%; margin-top: 8px; }
+    .mutedLink{ color:#c8d0ff; text-decoration: none; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🐶 Dog Attention – PiP Sound</h1>
+  <div class="sub">
+    Plays short dog-attention sounds that keep working in <b>Picture-in-Picture</b> and (best effort) while the browser is in the background.
+    <span class="small">Tested for Android Chrome; desktop works for debugging.</span>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+    <section class="card">
+      <div class="row">
+        <div style="flex:1; min-width: 210px;">
+          <label for="soundSel">Sound</label>
+          <select id="soundSel"></select>
+        </div>
+        <div style="flex:1; min-width: 210px;">
+          <label for="patternSel">Pattern</label>
+          <select id="patternSel">
+            <option value="single">Single</option>
+            <option value="double">Double</option>
+            <option value="burst">Burst</option>
+            <option value="random">Random (per trigger)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top: 10px;">
+        <div style="flex:1; min-width: 210px;">
+          <label for="intervalInp">Loop interval (seconds)</label>
+          <input id="intervalInp" type="number" min="0.5" max="10" step="0.1" inputmode="decimal" />
+          <div class="hint">Loop uses an audio-clock scheduler (not <span class="mono">setInterval</span> for playback timing).</div>
+        </div>
+        <div style="flex:1; min-width: 210px;">
+          <label for="volRange">Volume</label>
+          <input id="volRange" type="range" min="0" max="1" step="0.01" />
+          <div class="hint">Keep it low; high frequencies can be uncomfortable for humans.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="two">
+        <button id="onceBtn" title="Shortcut: Space">▶ Play once</button>
+        <button id="toggleLoopBtn" class="secondary" title="Shortcut: L">⟳ Start loop</button>
+      </div>
+
+      <div class="two" style="margin-top: 10px;">
+        <button id="stopBtn" class="danger" title="Shortcut: S">⏹ Stop</button>
+        <button id="pipBtn" class="secondary" title="Shortcut: P">📺 Enter PiP</button>
+      </div>
+
+      <div class="two" style="margin-top: 10px;">
+        <button id="fsBtn" class="secondary" title="Shortcut: F">⛶ Fullscreen</button>
+        <button id="pipLoopBtn">🚀 Start PiP + Loop</button>
+      </div>
+
+      <div class="status" id="statusRow">
+        <span class="pill" id="ctxPill">Audio: ?</span>
+        <span class="pill" id="loopPill">Loop: stopped</span>
+        <span class="pill" id="pipPill">PiP: no</span>
+        <span class="pill" id="recPill">Recording: none</span>
+      </div>
+
+      <details>
+        <summary>Help / Tips</summary>
+        <div class="hint">
+          <ul>
+            <li><b>First tap</b> enables audio + video playback (Android requires a user gesture).</li>
+            <li>If PiP button fails: try <b>Fullscreen</b> then press Android Home to trigger system PiP fallback.</li>
+            <li>System media controls (lock screen / PiP controls) map to: Play = start loop, Pause = pause loop, Next = play once.</li>
+            <li>Desktop shortcuts: <span class="kbd">Space</span> play once, <span class="kbd">L</span> loop, <span class="kbd">S</span> stop, <span class="kbd">P</span> PiP, <span class="kbd">F</span> fullscreen.</li>
+          </ul>
+        </div>
+      </details>
+    </section>
+
+    <aside class="card">
+      <div class="canvasWrap">
+        <canvas id="pipCanvas" width="640" height="360" aria-label="PiP animation canvas"></canvas>
+      </div>
+      <div class="hint">
+        This canvas is captured into a hidden <span class="mono">&lt;video&gt;</span> along with audio via <b>MediaStreamDestination</b>.
+        That video is what you put into PiP.
+      </div>
+
+      <div class="divider"></div>
+
+      <h3 style="margin:0 0 8px; font-size: 16px;">🎙️ Record custom sound</h3>
+      <div class="hint" id="micExplain">
+        Microphone audio is used <b>only locally</b> to record a short clip (max 2 seconds). Nothing is uploaded.
+      </div>
+
+      <div class="recordRow" style="margin-top: 10px;">
+        <button id="recStartBtn" class="secondary">🎙️ Start recording</button>
+        <button id="recStopBtn" class="secondary" disabled>⏹ Stop</button>
+      </div>
+      <div class="recordRow" style="margin-top: 10px;">
+        <button id="recPreviewBtn" class="secondary" disabled>▶ Preview</button>
+        <button id="recSaveBtn" disabled>💾 Save & use</button>
+        <button id="recDiscardBtn" class="danger" disabled>❌ Discard</button>
+      </div>
+      <audio id="recPreviewAudio" controls style="display:none;"></audio>
+
+      <div class="divider"></div>
+
+      <div class="small">
+        PWA: Install via “Add to Home Screen”. Offline supported via service worker.<br>
+        Repo-free static hosting friendly (Netlify / Cloudflare Pages).
+      </div>
+
+      <div class="hint" style="margin-top: 10px;">
+        If you want, you can host this as a folder. See the provided <span class="mono">manifest.webmanifest</span>, <span class="mono">sw.js</span>, and icons.
+      </div>
+    </aside>
+  </div>
+
+  <!-- Hidden PiP video (must be a real <video>, not audio) -->
+  <video id="pipVideo" playsinline style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;" aria-hidden="true"></video>
+
+<script>
+(() => {
+  "use strict";
+
+  /**********************
+   * Utilities & storage
+   **********************/
+  const $ = (id) => document.getElementById(id);
+  const STORAGE_KEY = "dog-attention-pip:v1";
+  const DEFAULTS = { soundId: "whistle", pattern: "single", interval: 1.5, volume: 0.35 };
+
+  function loadSettings(){
+    try {
+      const v = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      return Object.assign({}, DEFAULTS, v || {});
+    } catch { return {...DEFAULTS}; }
+  }
+  function saveSettings(partial){
+    const current = loadSettings();
+    const next = Object.assign({}, current, partial);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    return next;
+  }
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+  /**********************
+   * Audio engine (single AudioContext)
+   **********************/
+  let audioCtx = null;
+  let masterGain = null;
+  let mediaDest = null;
+  let soundBank = new Map(); // id -> {name, type:"synthetic"|"recording", playAt(t, opts)}
+  let recordedBuffer = null; // AudioBuffer for custom recording
+  let recordedBlobUrl = null;
+
+  // PiP video / stream
+  const canvas = $("pipCanvas");
+  const pipVideo = $("pipVideo");
+  let canvasStream = null;
+  let combinedStream = null;
+
+  // Loop scheduler
+  let loopRunning = false;
+  let schedulerTimer = null;
+  let nextLoopTime = 0;
+  const scheduleAhead = 0.35;     // seconds to schedule ahead
+  const schedulerTick = 70;       // ms (only used to wake scheduler, not for timing playback)
+
+  // Animation trigger for pulse
+  let lastTriggerMs = 0;
+
+  // Watchdog / robustness
+  let watchdogTimer = null;
+  let lastAnimHeartbeat = 0;
+  let animHeartbeatTimer = null;
+
+  // MediaRecorder
+  let recStream = null;
+  let mediaRecorder = null;
+  let recChunks = [];
+  let pendingRecBlob = null;
+
+  // IndexedDB
+  const DB_NAME = "dog-attention-pip-db";
+  const DB_STORE = "recordings";
+  const DB_KEY = "custom";
+
+  /**********************
+   * Built-in sounds (procedural)
+   **********************/
+  function envelopeGainNode(t0, attack, decay, peak=1.0){
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0 + Math.max(attack, 0.001));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(attack+decay, 0.01));
+    return g;
+  }
+
+  function playWhistleSweep(t0){
+    const dur = 0.45;
+    const osc = audioCtx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(6500, t0);
+    osc.frequency.exponentialRampToValueAtTime(11000, t0 + dur);
+    const env = envelopeGainNode(t0, 0.01, dur, 0.9);
+    osc.connect(env).connect(masterGain);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+    return dur;
+  }
+
+  function playSqueakyToy(t0){
+    const dur = 0.35;
+    const osc = audioCtx.createOscillator();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(2200, t0);
+    osc.frequency.exponentialRampToValueAtTime(5200, t0 + 0.08);
+    osc.frequency.exponentialRampToValueAtTime(2400, t0 + dur);
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(8000, t0);
+    lp.Q.value = 0.7;
+    const env = envelopeGainNode(t0, 0.005, dur, 0.7);
+    osc.connect(lp).connect(env).connect(masterGain);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+    return dur;
+  }
+
+  function playClicker(t0){
+    // Two very short impulses (like a clicker).
+    const click = (tt) => {
+      const dur = 0.035;
+      const bufLen = Math.floor(audioCtx.sampleRate * dur);
+      const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+      const data = buf.getChannelData(0);
+      for(let i=0;i<bufLen;i++){
+        // Exponentially decaying noise burst
+        const x = (Math.random()*2-1) * Math.exp(-i/(bufLen/6));
+        data[i] = x;
+      }
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      const bp = audioCtx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.setValueAtTime(2400, tt);
+      bp.Q.value = 10;
+      const env = envelopeGainNode(tt, 0.001, dur, 0.8);
+      src.connect(bp).connect(env).connect(masterGain);
+      src.start(tt);
+      src.stop(tt + dur + 0.01);
+      return dur;
+    }
+    click(t0);
+    click(t0 + 0.07);
+    return 0.12;
+  }
+
+  function playKissyNoise(t0){
+    const dur = 0.22;
+    const bufLen = Math.floor(audioCtx.sampleRate * dur);
+    const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<bufLen;i++){
+      // noisy breath + quick opening
+      const t = i/bufLen;
+      const amp = (t < 0.15) ? (t/0.15) : Math.exp(-(t-0.15)*8);
+      data[i] = (Math.random()*2-1) * amp;
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+
+    const hp = audioCtx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.setValueAtTime(1800, t0);
+    hp.Q.value = 0.8;
+
+    const env = envelopeGainNode(t0, 0.002, dur, 0.85);
+    src.connect(hp).connect(env).connect(masterGain);
+    src.start(t0);
+    src.stop(t0 + dur + 0.02);
+    return dur;
+  }
+
+  function playChirp(t0){
+    const dur = 0.18;
+    const osc = audioCtx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(3000, t0);
+    osc.frequency.exponentialRampToValueAtTime(9000, t0 + dur);
+    const env = envelopeGainNode(t0, 0.004, dur, 0.7);
+    osc.connect(env).connect(masterGain);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+    return dur;
+  }
+
+  function playTrill(t0){
+    const dur = 0.55;
+    const osc = audioCtx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(5200, t0);
+
+    const lfo = audioCtx.createOscillator();
+    lfo.type = "square";
+    lfo.frequency.setValueAtTime(24, t0); // trill rate
+    const lfoGain = audioCtx.createGain();
+    lfoGain.gain.setValueAtTime(1200, t0);
+    lfo.connect(lfoGain).connect(osc.frequency);
+
+    const env = envelopeGainNode(t0, 0.01, dur, 0.6);
+    osc.connect(env).connect(masterGain);
+    osc.start(t0); lfo.start(t0);
+    osc.stop(t0 + dur + 0.02); lfo.stop(t0 + dur + 0.02);
+    return dur;
+  }
+
+  function playRecorded(t0){
+    if(!recordedBuffer) return 0;
+    const src = audioCtx.createBufferSource();
+    src.buffer = recordedBuffer;
+    // gentle HP to reduce low rumble
+    const hp = audioCtx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.setValueAtTime(120, t0);
+    const env = envelopeGainNode(t0, 0.005, Math.min(1.8, recordedBuffer.duration), 1.0);
+    src.connect(hp).connect(env).connect(masterGain);
+    src.start(t0);
+    src.stop(t0 + Math.min(1.9, recordedBuffer.duration) + 0.03);
+    return Math.min(1.9, recordedBuffer.duration);
+  }
+
+  /**********************
+   * Patterns
+   **********************/
+  function patternToSchedule(soundId, t0){
+    const pattern = $("patternSel").value;
+    const ids = getEligibleSoundIds();
+
+    const choose = () => {
+      if(pattern === "random"){
+        const r = ids[Math.floor(Math.random()*ids.length)];
+        return r;
+      }
+      return soundId;
+    };
+
+    // When we "trigger", make the animation pulse
+    pulseNow();
+
+    if(pattern === "single" || pattern === "random"){
+      return playSoundAt(choose(), t0);
+    }
+    if(pattern === "double"){
+      playSoundAt(choose(), t0);
+      return playSoundAt(choose(), t0 + 0.12) + 0.12;
+    }
+    if(pattern === "burst"){
+      const n = 5;
+      const gap = 0.085;
+      let last = 0;
+      for(let i=0;i<n;i++){
+        last = playSoundAt(choose(), t0 + i*gap);
+      }
+      return (n-1)*gap + last;
+    }
+    return playSoundAt(choose(), t0);
+  }
+
+  function getEligibleSoundIds(){
+    // If recorded buffer not available, exclude it.
+    const ids = [];
+    for(const [id, s] of soundBank.entries()){
+      if(id === "recorded" && !recordedBuffer) continue;
+      ids.push(id);
+    }
+    return ids;
+  }
+
+  function playSoundAt(id, t0){
+    const s = soundBank.get(id);
+    if(!s) return 0;
+    return s.playAt(t0);
+  }
+
+  /**********************
+   * Loop scheduler (audio-clock based)
+   **********************/
+  function schedulerTickFn(){
+    if(!loopRunning || !audioCtx) return;
+
+    const now = audioCtx.currentTime;
+    const until = now + scheduleAhead;
+
+    while(nextLoopTime < until){
+      const selected = $("soundSel").value;
+      patternToSchedule(selected, nextLoopTime);
+      const interval = Number($("intervalInp").value || DEFAULTS.interval);
+      nextLoopTime += clamp(interval, 0.5, 10);
+    }
+  }
+
+  function startLoop(){
+    if(!audioCtx) return;
+    loopRunning = true;
+    nextLoopTime = Math.max(audioCtx.currentTime + 0.03, nextLoopTime || audioCtx.currentTime + 0.03);
+
+    if(!schedulerTimer){
+      schedulerTimer = setInterval(schedulerTickFn, schedulerTick);
+    }
+    updateMediaSessionState();
+    updatePills();
+  }
+
+  function pauseLoop(){
+    loopRunning = false;
+    updateMediaSessionState();
+    updatePills();
+  }
+
+  function stopAll(){
+    // For procedural one-shots we don't keep references; stopping loop prevents new sounds.
+    loopRunning = false;
+    nextLoopTime = 0;
+    updateMediaSessionState();
+    updatePills();
+  }
+
+  /**********************
+   * PiP video + stream
+   **********************/
+  function buildStreams(){
+    if(canvasStream && combinedStream) return;
+
+    // Canvas stream (visuals)
+    canvasStream = canvas.captureStream(30);
+
+    // Audio stream from WebAudio destination
+    const audioStream = mediaDest.stream;
+
+    // Combine: copy tracks into one stream
+    combinedStream = new MediaStream();
+    for(const t of canvasStream.getVideoTracks()) combinedStream.addTrack(t);
+    for(const t of audioStream.getAudioTracks()) combinedStream.addTrack(t);
+
+    pipVideo.srcObject = combinedStream;
+    pipVideo.muted = false;
+    pipVideo.playsInline = true;
+    pipVideo.loop = true;
+  }
+
+  async function ensureVideoPlaying(){
+    try {
+      buildStreams();
+      if(pipVideo.readyState < 2){
+        // Calling play triggers loading.
+        await pipVideo.play();
+      } else if(pipVideo.paused){
+        await pipVideo.play();
+      }
+      return true;
+    } catch (e){
+      console.warn("Video play failed (gesture needed?)", e);
+      return false;
+    }
+  }
+
+  async function enterPiP(){
+    await ensureStarted(); // ensures audio/video unlocked
+    const ok = await ensureVideoPlaying();
+    if(!ok) return;
+
+    if(document.pictureInPictureEnabled && pipVideo.requestPictureInPicture){
+      try {
+        await pipVideo.requestPictureInPicture();
+      } catch (e){
+        console.warn("requestPictureInPicture failed", e);
+      }
+    } else {
+      // fallback: fullscreen then user presses Home for system PiP (Android)
+      try { await requestFullscreen(); } catch {}
+    }
+    updatePills();
+  }
+
+  async function requestFullscreen(){
+    const el = document.documentElement;
+    if(el.requestFullscreen) return el.requestFullscreen();
+    if(el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    // In background: best effort to keep media alive.
+    if(loopRunning) ensureStarted().catch(()=>{});
+  });
+
+  /**********************
+   * Canvas animation (OffscreenCanvas+Worker when possible)
+   **********************/
+  let animMode = "raf";
+  let worker = null;
+
+  function startAnimation(){
+    // Heartbeat for watchdog
+    lastAnimHeartbeat = performance.now();
+
+    const supportsOffscreen = ("OffscreenCanvas" in window) && (canvas.transferControlToOffscreen);
+
+    if(supportsOffscreen){
+      animMode = "worker";
+      const off = canvas.transferControlToOffscreen();
+
+      const workerCode = `
+        let c=null, ctx=null, w=640, h=360;
+        let t0=0;
+        let lastPulse=0;
+        let pulse=0;
+        function draw(ts){
+          if(!ctx) return;
+          const t = (ts - t0) / 1000;
+          // decay pulse
+          pulse *= 0.90;
+          const bg = '#0b0f18';
+          ctx.fillStyle = bg;
+          ctx.fillRect(0,0,w,h);
+
+          // subtle waves
+          ctx.globalAlpha = 0.12;
+          ctx.lineWidth = 3;
+          for(let i=0;i<3;i++){
+            const y = h*0.55 + Math.sin(t*1.1 + i)*18;
+            ctx.beginPath();
+            for(let x=0;x<=w;x+=12){
+              const yy = y + Math.sin(t*2.0 + x*0.015 + i)*10;
+              ctx.lineTo(x, yy);
+            }
+            ctx.strokeStyle = '#7bd389';
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+
+          // dog emoji + pulse glow
+          const cx = w/2, cy = h/2;
+          const glow = 18 + pulse*42;
+          ctx.save();
+          ctx.shadowColor = 'rgba(123,211,137,0.55)';
+          ctx.shadowBlur = glow;
+          ctx.font = '110px system-ui, Apple Color Emoji, Segoe UI Emoji';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('🐶', cx, cy-10);
+          ctx.restore();
+
+          // pulse ring
+          ctx.globalAlpha = 0.55;
+          ctx.strokeStyle = '#ffd166';
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          const r = 65 + pulse*55;
+          ctx.arc(cx, cy, r, 0, Math.PI*2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+
+          // text
+          ctx.fillStyle = 'rgba(242,244,248,0.85)';
+          ctx.font = '22px system-ui';
+          ctx.fillText('Look here!', cx, h*0.82);
+
+          // heartbeat
+          self.postMessage({type:'hb'});
+        }
+
+        function loop(){
+          const now = performance.now();
+          draw(now);
+        }
+
+        self.onmessage = (e) => {
+          const d = e.data || {};
+          if(d.type==='init'){
+            c = d.canvas;
+            w = d.w; h = d.h;
+            ctx = c.getContext('2d', {alpha:false});
+            t0 = performance.now();
+            setInterval(loop, 33); // ~30fps, tends to keep going even when tab is backgrounded
+          }
+          if(d.type==='pulse'){
+            pulse = 1.0;
+            lastPulse = performance.now();
+          }
+        };
+      `;
+      const blob = new Blob([workerCode], {type:"application/javascript"});
+      worker = new Worker(URL.createObjectURL(blob));
+      worker.onmessage = (e) => {
+        if(e.data && e.data.type === "hb"){
+          lastAnimHeartbeat = performance.now();
+        }
+      };
+      worker.postMessage({type:"init", canvas: off, w: canvas.width, h: canvas.height}, [off]);
+    } else {
+      animMode = "raf";
+      const ctx = canvas.getContext("2d", {alpha:false});
+
+      let pulse = 0;
+      const tick = (ts) => {
+        const t = ts/1000;
+        pulse *= 0.92;
+
+        // background
+        ctx.fillStyle = "#0b0f18";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        // waves
+        ctx.globalAlpha = 0.12;
+        ctx.lineWidth = 3;
+        for(let i=0;i<3;i++){
+          const y = canvas.height*0.55 + Math.sin(t*1.1 + i)*18;
+          ctx.beginPath();
+          for(let x=0;x<=canvas.width;x+=12){
+            const yy = y + Math.sin(t*2.0 + x*0.015 + i)*10;
+            ctx.lineTo(x, yy);
+          }
+          ctx.strokeStyle = "#7bd389";
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+
+        // dog + glow
+        const cx = canvas.width/2, cy = canvas.height/2;
+        ctx.save();
+        ctx.shadowColor = "rgba(123,211,137,0.55)";
+        ctx.shadowBlur = 18 + pulse*42;
+        ctx.font = "110px system-ui, Apple Color Emoji, Segoe UI Emoji";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🐶", cx, cy-10);
+        ctx.restore();
+
+        // ring
+        ctx.globalAlpha = 0.55;
+        ctx.strokeStyle = "#ffd166";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 65 + pulse*55, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = "rgba(242,244,248,0.85)";
+        ctx.font = "22px system-ui";
+        ctx.fillText("Look here!", cx, canvas.height*0.82);
+
+        // heartbeat
+        lastAnimHeartbeat = performance.now();
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+
+      // local pulse function
+      window.__pulseRaf = () => { pulse = 1.0; };
+    }
+
+    // Additional heartbeat timer so watchdog can detect extreme stalls
+    if(!animHeartbeatTimer){
+      animHeartbeatTimer = setInterval(() => {
+        // no-op; we only read lastAnimHeartbeat in watchdog
+      }, 1000);
+    }
+  }
+
+  function pulseNow(){
+    lastTriggerMs = performance.now();
+    if(animMode === "worker" && worker){
+      worker.postMessage({type:"pulse"});
+    } else if(window.__pulseRaf){
+      window.__pulseRaf();
+    }
+  }
+
+  /**********************
+   * Media Session API (PiP/system controls)
+   **********************/
+  function setupMediaSession(){
+    if(!("mediaSession" in navigator)) return;
+
+    try{
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: "Dog Attention",
+        artist: "PiP Sound",
+        album: "Web App",
+        artwork: [
+          { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
+        ]
+      });
+
+      navigator.mediaSession.setActionHandler("play", async () => {
+        await ensureStarted();
+        startLoop();
+      });
+      navigator.mediaSession.setActionHandler("pause", () => {
+        pauseLoop();
+      });
+      navigator.mediaSession.setActionHandler("nexttrack", async () => {
+        await ensureStarted();
+        playOnce();
+      });
+
+      // Optional: stop
+      if(navigator.mediaSession.setActionHandler){
+        navigator.mediaSession.setActionHandler("stop", () => stopAll());
+      }
+      updateMediaSessionState();
+    } catch(e){
+      console.warn("Media Session setup failed", e);
+    }
+  }
+
+  function updateMediaSessionState(){
+    if(!("mediaSession" in navigator)) return;
+    try{
+      navigator.mediaSession.playbackState = loopRunning ? "playing" : "paused";
+    } catch {}
+  }
+
+  /**********************
+   * Robustness watchdog
+   **********************/
+  async function watchdogTick(){
+    // 1) Keep AudioContext alive if loop is running
+    if(audioCtx && loopRunning && audioCtx.state !== "running"){
+      try { await audioCtx.resume(); } catch {}
+    }
+
+    // 2) Keep video playing (helps PiP stay alive)
+    if(loopRunning){
+      await ensureVideoPlaying();
+    }
+
+    // 3) Detect animation stalls (best-effort recovery)
+    const now = performance.now();
+    const stalled = (now - lastAnimHeartbeat) > 3500;
+    if(stalled){
+      console.warn("Animation heartbeat stalled; attempting restart.");
+      try {
+        // Restart animation only in raf mode (worker can't be reattached after transfer)
+        if(animMode === "raf"){
+          startAnimation();
+        }
+      } catch {}
+    }
+
+    // 4) Update pills
+    updatePills();
+  }
+
+  function startWatchdog(){
+    if(watchdogTimer) return;
+    watchdogTimer = setInterval(watchdogTick, 1100);
+  }
+
+  /**********************
+   * Recording (MediaRecorder) + IndexedDB persistence
+   **********************/
+  function openDB(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if(!db.objectStoreNames.contains(DB_STORE)){
+          db.createObjectStore(DB_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbPutBlob(blob){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      tx.objectStore(DB_STORE).put(blob, DB_KEY);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function idbGetBlob(){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, "readonly");
+      const req = tx.objectStore(DB_STORE).get(DB_KEY);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbDeleteBlob(){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      tx.objectStore(DB_STORE).delete(DB_KEY);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function decodeBlobToAudioBuffer(blob){
+    const arr = await blob.arrayBuffer();
+    // decodeAudioData sometimes requires running context; try resume first
+    if(audioCtx && audioCtx.state !== "running"){
+      try{ await audioCtx.resume(); } catch {}
+    }
+    return await audioCtx.decodeAudioData(arr);
+  }
+
+  async function loadSavedRecordingIfAny(){
+    try {
+      const blob = await idbGetBlob();
+      if(!blob) return;
+      pendingRecBlob = blob;
+
+      // Create preview URL for the <audio> element (not used for PiP audio chain)
+      if(recordedBlobUrl) URL.revokeObjectURL(recordedBlobUrl);
+      recordedBlobUrl = URL.createObjectURL(blob);
+      const a = $("recPreviewAudio");
+      a.src = recordedBlobUrl;
+      a.style.display = "";
+      $("recPreviewBtn").disabled = false;
+      $("recSaveBtn").disabled = false;
+      $("recDiscardBtn").disabled = false;
+
+      // Decode into AudioBuffer for WebAudio playback
+      await ensureStarted(false); // not forcing video play
+      recordedBuffer = await decodeBlobToAudioBuffer(blob);
+
+      // Add option if not already
+      refreshSoundSelectorOptions();
+      $("recPill").textContent = "Recording: saved";
+      $("recPill").className = "pill good";
+    } catch(e){
+      console.warn("Failed to load saved recording", e);
+    }
+  }
+
+  async function startRecording(){
+    await ensureStarted(false); // start audio ctx (not strictly required, but makes decode later easier)
+    recChunks = [];
+    pendingRecBlob = null;
+    $("recPill").textContent = "Recording: ...";
+    $("recPill").className = "pill warn";
+
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(recStream, { mimeType: pickRecorderMime() });
+
+    mediaRecorder.ondataavailable = (e) => {
+      if(e.data && e.data.size > 0) recChunks.push(e.data);
+    };
+    mediaRecorder.onstop = async () => {
+      try{
+        // Stop tracks
+        recStream.getTracks().forEach(t => t.stop());
+      } catch {}
+
+      const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      pendingRecBlob = blob;
+
+      // Preview
+      if(recordedBlobUrl) URL.revokeObjectURL(recordedBlobUrl);
+      recordedBlobUrl = URL.createObjectURL(blob);
+      const a = $("recPreviewAudio");
+      a.src = recordedBlobUrl;
+      a.style.display = "";
+      $("recPreviewBtn").disabled = false;
+      $("recSaveBtn").disabled = false;
+      $("recDiscardBtn").disabled = false;
+
+      $("recPill").textContent = "Recording: ready";
+      $("recPill").className = "pill warn";
+    };
+
+    mediaRecorder.start();
+
+    // Auto-stop after 2 seconds max
+    setTimeout(() => {
+      if(mediaRecorder && mediaRecorder.state === "recording"){
+        mediaRecorder.stop();
+      }
+    }, 2000);
+
+    $("recStartBtn").disabled = true;
+    $("recStopBtn").disabled = false;
+  }
+
+  function stopRecording(){
+    if(mediaRecorder && mediaRecorder.state === "recording"){
+      mediaRecorder.stop();
+    }
+    $("recStartBtn").disabled = false;
+    $("recStopBtn").disabled = true;
+  }
+
+  function pickRecorderMime(){
+    const candidates = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus",
+      "audio/ogg",
+    ];
+    for(const m of candidates){
+      if(MediaRecorder.isTypeSupported(m)) return m;
+    }
+    return "";
+  }
+
+  async function saveRecording(){
+    if(!pendingRecBlob) return;
+    await idbPutBlob(pendingRecBlob);
+    // Decode for WebAudio playback
+    recordedBuffer = await decodeBlobToAudioBuffer(pendingRecBlob);
+
+    refreshSoundSelectorOptions();
+    $("soundSel").value = "recorded";
+    saveSettings({soundId:"recorded"});
+
+    $("recPill").textContent = "Recording: saved";
+    $("recPill").className = "pill good";
+  }
+
+  async function discardRecording(){
+    pendingRecBlob = null;
+    recordedBuffer = null;
+
+    try { await idbDeleteBlob(); } catch {}
+
+    if(recordedBlobUrl) URL.revokeObjectURL(recordedBlobUrl);
+    recordedBlobUrl = null;
+
+    const a = $("recPreviewAudio");
+    a.removeAttribute("src");
+    a.style.display = "none";
+
+    $("recPreviewBtn").disabled = true;
+    $("recSaveBtn").disabled = true;
+    $("recDiscardBtn").disabled = true;
+
+    // If currently selected, revert
+    if($("soundSel").value === "recorded"){
+      $("soundSel").value = "whistle";
+      saveSettings({soundId:"whistle"});
+    }
+    refreshSoundSelectorOptions();
+
+    $("recPill").textContent = "Recording: none";
+    $("recPill").className = "pill";
+  }
+
+  /**********************
+   * App initialization
+   **********************/
+  function registerBuiltInSounds(){
+    soundBank.set("whistle", { name: "High whistle (sweep)", type: "synthetic", playAt: playWhistleSweep });
+    soundBank.set("squeak",  { name: "Squeaky toy", type: "synthetic", playAt: playSqueakyToy });
+    soundBank.set("clicker", { name: "Clicker", type: "synthetic", playAt: playClicker });
+    soundBank.set("kissy",   { name: "Kissy noise", type: "synthetic", playAt: playKissyNoise });
+    soundBank.set("chirp",   { name: "Chirp", type: "synthetic", playAt: playChirp });
+    soundBank.set("trill",   { name: "Trill", type: "synthetic", playAt: playTrill });
+    soundBank.set("recorded",{ name: "My recorded sound", type: "recording", playAt: playRecorded });
+  }
+
+  function refreshSoundSelectorOptions(){
+    const sel = $("soundSel");
+    const current = sel.value || loadSettings().soundId;
+
+    sel.innerHTML = "";
+    for(const [id, s] of soundBank.entries()){
+      if(id === "recorded" && !recordedBuffer) continue;
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    }
+    // ensure fallback
+    if([...sel.options].some(o => o.value === current)){
+      sel.value = current;
+    } else {
+      sel.value = "whistle";
+    }
+  }
+
+  function updatePills(){
+    const ctxPill = $("ctxPill");
+    const loopPill = $("loopPill");
+    const pipPill = $("pipPill");
+
+    if(!audioCtx){
+      ctxPill.textContent = "Audio: not started";
+      ctxPill.className = "pill";
+    } else {
+      ctxPill.textContent = "Audio: " + audioCtx.state;
+      ctxPill.className = "pill " + (audioCtx.state === "running" ? "good" : "warn");
+    }
+
+    loopPill.textContent = "Loop: " + (loopRunning ? "running" : "stopped");
+    loopPill.className = "pill " + (loopRunning ? "good" : "");
+
+    const pipActive = !!document.pictureInPictureElement;
+    pipPill.textContent = "PiP: " + (pipActive ? "yes" : "no");
+    pipPill.className = "pill " + (pipActive ? "good" : "");
+  }
+
+  /**********************
+   * Unlock audio/video on first gesture
+   **********************/
+  async function ensureStarted(forceVideo=true){
+    // forceVideo=false allows decode operations without trying to play the video.
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = loadSettings().volume;
+
+      mediaDest = audioCtx.createMediaStreamDestination();
+      masterGain.connect(mediaDest);
+
+      // Also connect to device output (so you hear it even without PiP)
+      masterGain.connect(audioCtx.destination);
+
+      registerBuiltInSounds();
+
+      // Start animation early
+      startAnimation();
+
+      // Setup media session now that we have icons/metadata
+      setupMediaSession();
+
+      // Build streams after dest exists
+      buildStreams();
+    }
+
+    if(audioCtx.state !== "running"){
+      try { await audioCtx.resume(); } catch {}
+    }
+
+    if(forceVideo){
+      await ensureVideoPlaying();
+    }
+
+    startWatchdog();
+    updatePills();
+  }
+
+  /**********************
+   * UI actions
+   **********************/
+  async function playOnce(){
+    await ensureStarted();
+    const id = $("soundSel").value;
+    const t0 = audioCtx.currentTime + 0.02;
+    patternToSchedule(id, t0);
+  }
+
+  async function toggleLoop(){
+    await ensureStarted();
+    if(loopRunning){
+      pauseLoop();
+      $("toggleLoopBtn").textContent = "⟳ Start loop";
+    } else {
+      startLoop();
+      $("toggleLoopBtn").textContent = "⏸ Pause loop";
+    }
+  }
+
+  async function stopClicked(){
+    await ensureStarted(false);
+    stopAll();
+    $("toggleLoopBtn").textContent = "⟳ Start loop";
+  }
+
+  async function startPiPAndLoop(){
+    await ensureStarted();
+    await enterPiP();
+    startLoop();
+    $("toggleLoopBtn").textContent = "⏸ Pause loop";
+  }
+
+  /**********************
+   * Settings bindings
+   **********************/
+  function initUI(){
+    const s = loadSettings();
+    $("intervalInp").value = s.interval;
+    $("volRange").value = s.volume;
+    $("patternSel").value = s.pattern;
+
+    refreshSoundSelectorOptions();
+    $("soundSel").value = s.soundId;
+
+    $("soundSel").addEventListener("change", () => saveSettings({soundId: $("soundSel").value}));
+    $("patternSel").addEventListener("change", () => saveSettings({pattern: $("patternSel").value}));
+    $("intervalInp").addEventListener("change", () => {
+      const v = clamp(Number($("intervalInp").value || DEFAULTS.interval), 0.5, 10);
+      $("intervalInp").value = v;
+      saveSettings({interval: v});
+    });
+    $("volRange").addEventListener("input", () => {
+      const v = clamp(Number($("volRange").value), 0, 1);
+      if(masterGain) masterGain.gain.value = v;
+      saveSettings({volume: v});
+    });
+
+    $("onceBtn").addEventListener("click", playOnce);
+    $("toggleLoopBtn").addEventListener("click", toggleLoop);
+    $("stopBtn").addEventListener("click", stopClicked);
+    $("pipBtn").addEventListener("click", enterPiP);
+    $("fsBtn").addEventListener("click", () => ensureStarted().then(requestFullscreen));
+    $("pipLoopBtn").addEventListener("click", startPiPAndLoop);
+
+    // Recording controls
+    $("recStartBtn").addEventListener("click", async () => {
+      try {
+        await startRecording();
+      } catch(e){
+        console.warn(e);
+        alert("Microphone access failed. Please allow mic permission and try again.");
+        $("recStartBtn").disabled = false;
+        $("recStopBtn").disabled = true;
+        $("recPill").textContent = "Recording: none";
+        $("recPill").className = "pill";
+      }
+    });
+    $("recStopBtn").addEventListener("click", stopRecording);
+    $("recPreviewBtn").addEventListener("click", () => {
+      const a = $("recPreviewAudio");
+      a.play().catch(()=>{});
+    });
+    $("recSaveBtn").addEventListener("click", saveRecording);
+    $("recDiscardBtn").addEventListener("click", discardRecording);
+
+    // Keyboard shortcuts (desktop testing)
+    window.addEventListener("keydown", (e) => {
+      if(e.repeat) return;
+      if(e.code === "Space"){ e.preventDefault(); playOnce(); }
+      if(e.key.toLowerCase() === "l"){ e.preventDefault(); toggleLoop(); }
+      if(e.key.toLowerCase() === "s"){ e.preventDefault(); stopClicked(); }
+      if(e.key.toLowerCase() === "p"){ e.preventDefault(); enterPiP(); }
+      if(e.key.toLowerCase() === "f"){ e.preventDefault(); requestFullscreen(); }
+    });
+
+    // Update PiP pill when leaving PiP
+    pipVideo.addEventListener("leavepictureinpicture", updatePills);
+
+    // Save selected sound to settings on load if missing
+    updatePills();
+  }
+
+  /**********************
+   * Service Worker
+   **********************/
+  async function registerSW(){
+    if(!("serviceWorker" in navigator)) return;
+    try {
+      await navigator.serviceWorker.register("sw.js");
+    } catch(e){
+      console.warn("SW register failed", e);
+    }
+  }
+
+  /**********************
+   * Boot
+   **********************/
+  initUI();
+  registerSW();
+
+  // Best-effort preload saved recording (will decode once AudioContext is created by a gesture).
+  // We still populate the preview UI without decoding.
+  idbGetBlob().then(blob => {
+    if(!blob) return;
+    pendingRecBlob = blob;
+    if(recordedBlobUrl) URL.revokeObjectURL(recordedBlobUrl);
+    recordedBlobUrl = URL.createObjectURL(blob);
+    const a = $("recPreviewAudio");
+    a.src = recordedBlobUrl;
+    a.style.display = "";
+    $("recPreviewBtn").disabled = false;
+    $("recSaveBtn").disabled = false;
+    $("recDiscardBtn").disabled = false;
+    $("recPill").textContent = "Recording: saved";
+    $("recPill").className = "pill good";
+    // Decoding requires AudioContext; do it once user interacts.
+  }).catch(()=>{});
+
+  // After first user gesture, create AudioContext and decode if a recording exists.
+  const firstGesture = async () => {
+    window.removeEventListener("pointerdown", firstGesture, {capture:true});
+    window.removeEventListener("keydown", firstGesture, {capture:true});
+    await ensureStarted(false);
+    // Decode any saved recording now
+    if(!recordedBuffer){
+      try{
+        const blob = await idbGetBlob();
+        if(blob){
+          recordedBuffer = await decodeBlobToAudioBuffer(blob);
+          refreshSoundSelectorOptions();
+          // If previously chosen, restore
+          const s = loadSettings();
+          if(s.soundId === "recorded") $("soundSel").value = "recorded";
+        }
+      } catch(e){ console.warn("Decode on first gesture failed", e); }
+    }
+  };
+  window.addEventListener("pointerdown", firstGesture, {capture:true, once:false});
+  window.addEventListener("keydown", firstGesture, {capture:true, once:false});
+
+})();
+</script>
+</main>
+</body>
+</html>
