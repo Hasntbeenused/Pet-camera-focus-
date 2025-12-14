@@ -949,7 +949,22 @@
     if(audioCtx && audioCtx.state !== "running"){
       try{ await audioCtx.resume(); } catch {}
     }
-    return await audioCtx.decodeAudioData(arr);
+    const decoded = await audioCtx.decodeAudioData(arr);
+    return await resampleToContextSampleRate(decoded);
+  }
+
+  async function resampleToContextSampleRate(buf){
+    // AudioBufferSourceNode playback speed is affected by a buffer/context
+    // sample-rate mismatch. Resample recordings to the active AudioContext
+    // rate so playback keeps the expected duration/pitch.
+    if(!audioCtx || buf.sampleRate === audioCtx.sampleRate) return buf;
+    const dur = buf.duration;
+    const offline = new OfflineAudioContext(buf.numberOfChannels, Math.ceil(dur * audioCtx.sampleRate), audioCtx.sampleRate);
+    const src = offline.createBufferSource();
+    src.buffer = buf;
+    src.connect(offline.destination);
+    src.start(0);
+    return await offline.startRendering();
   }
 
   async function loadSavedRecordingIfAny(){
