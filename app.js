@@ -2,41 +2,46 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const video = $('pipVideo'), canvas = $('pipCanvas');
-  const defaults = {soundId:'chime', pattern:'single', interval:3, volume:0.2};
+  const defaults = {soundId:'chime', pattern:'single', interval:3, volume:0.2, loop:false};
   const key = 'dog-attention-pip:v1';
   let settings; try {settings = {...defaults,...JSON.parse(localStorage.getItem(key)||'{}')};} catch {settings = {...defaults};}
   const clamp = (v,a,b) => Math.min(b,Math.max(a,Number.isFinite(+v)?+v:a));
   settings.interval=clamp(settings.interval,0.5,30); settings.volume=clamp(settings.volume,0,1);
   let ctx, gain, destination, source, active=false, looping=false, version=0, internalPlay=false;
-  let stream, videoAvailable=false, recordedBuffer, savedBlob, pendingBlob, previewUrl;
+  let stream, videoAvailable=false, recordedBuffer, savedBlob, pendingBlob;
   let recorder, micStream, recTimer, recordingBusy=false, preparingRecording=false;
-  let restoring, decodedBlob, wantedSound=settings.soundId;
+  let restoring, decodedBlob, selectedId=settings.soundId;
   const sounds = [
-    {id:'chime',name:'Soft chime',duration:0.9},
-    {id:'squeak',name:'Squeaky toy',duration:0.38},
-    {id:'clicker',name:'Clicker',duration:0.16},
-    {id:'kissy',name:'Kissy noise',duration:0.3},
-    {id:'chirp',name:'Bird chirp',duration:0.5},
-    {id:'trill',name:'Gentle trill',duration:0.65},
-    {id:'whistle',name:'Whistle',duration:0.5}
+    {id:'chime',icon:'🔔',name:'Soft chime',duration:0.9},
+    {id:'squeak',icon:'🦆',name:'Squeaky toy',duration:0.38},
+    {id:'clicker',icon:'👆',name:'Clicker',duration:0.16},
+    {id:'kissy',icon:'💋',name:'Kissy noise',duration:0.3},
+    {id:'chirp',icon:'🐦',name:'Bird chirp',duration:0.5},
+    {id:'trill',icon:'🎵',name:'Gentle trill',duration:0.65},
+    {id:'whistle',icon:'📣',name:'Whistle',duration:0.5}
   ];
   function note(message=''){ $('notice').textContent=message; }
   function persist(){ try {localStorage.setItem(key,JSON.stringify(settings));} catch {note('Settings cannot be saved in this browser session.');} }
-  function eligible(){return recordedBuffer?[...sounds,{id:'recorded',name:'My recorded sound'}]:sounds;}
+  function eligible(){return recordedBuffer?[...sounds,{id:'recorded',icon:'🎙️',name:'My recorded sound'}]:sounds;}
   function refreshSounds(){
-    const selected=$('soundSel').value || wantedSound;
-    $('soundSel').replaceChildren(...eligible().map(s=>new Option(s.name,s.id)));
-    $('soundSel').value=eligible().some(s=>s.id===selected)?selected:'chime';
+    $('soundGrid').replaceChildren(...eligible().map(sound=>{
+      const button=document.createElement('button');
+      button.className='sound';button.dataset.sound=sound.id;
+      button.title=sound.name;button.setAttribute('aria-label',sound.name);
+      button.setAttribute('aria-pressed',String(sound.id===selectedId));
+      button.disabled=recordingBusy;
+      const symbol=document.createElement('span');symbol.textContent=sound.icon;
+      symbol.setAttribute('aria-hidden','true');button.append(symbol);
+      button.onclick=run(async()=>{selectedId=sound.id;await play(false,true);});
+      return button;
+    }));
   }
   function update(){
-    $('ctxPill').textContent=active?'Audio: playing':'Audio: ready';
-    $('ctxPill').className='pill'+(active?' good':'');
-    $('loopPill').textContent=looping?'Loop: running':'Loop: stopped';
-    $('toggleLoopBtn').textContent=looping?'⏸ Pause loop':'⟳ Start loop';
-    $('pipPill').textContent=document.pictureInPictureElement?'PiP: open':'PiP: closed';
+    for(const button of $('soundGrid').children) button.setAttribute('aria-pressed',String(button.dataset.sound===selectedId));
+    $('pipBtn').textContent=document.pictureInPictureElement?'▣ Floating player open':'▣ Open floating player';
     if('mediaSession' in navigator){
       navigator.mediaSession.playbackState=active?'playing':'paused';
-      if('MediaMetadata' in window) navigator.mediaSession.metadata=new MediaMetadata({title:eligible().find(s=>s.id===$('soundSel').value)?.name || 'Look here!',artist:'Look here! • Photo sounds'});
+      if('MediaMetadata' in window) navigator.mediaSession.metadata=new MediaMetadata({title:eligible().find(s=>s.id===selectedId)?.name || 'Look here!',artist:'Look here! • Photo sounds'});
     }
     draw();
   }
@@ -62,7 +67,7 @@
       try{
         recordedBuffer=await ctx.decodeAudioData(await savedBlob.arrayBuffer()); decodedBlob=savedBlob;
         refreshSounds();
-        if(wantedSound==='recorded') $('soundSel').value='recorded';
+
       }catch{note('Your saved recording could not be read. Please record it again.');savedBlob=null;}
     }
   }
@@ -74,7 +79,7 @@
   function stop(){
     version++; active=false; looping=false;
     if(source){source.onended=null;try{source.stop();}catch{}source.disconnect();source=null;}
-    video.pause(); $('recPreviewAudio').pause(); update();
+    video.pause(); update();
   }
   function makeSound(id){
     if(id==='recorded' && recordedBuffer) return recordedBuffer;
@@ -97,9 +102,9 @@
     }
     return buffer;
   }
-  function makePattern(){
-    const pattern=$('patternSel').value;
-    const id=pattern==='random'?eligible()[Math.floor(Math.random()*eligible().length)].id:$('soundSel').value;
+  function makePattern(preview){
+    const pattern=preview?'single':$('patternSel').value;
+    const id=selectedId;
     const input=makeSound(id), count=pattern==='double'?2:pattern==='burst'?5:1;
     const gap=0.12, duration=input.duration*count+gap*(count-1);
     const output=ctx.createBuffer(input.numberOfChannels,Math.ceil(duration*ctx.sampleRate),ctx.sampleRate);
@@ -110,11 +115,11 @@
     }
     return output;
   }
-  async function play(repeat=false){
+  async function play(repeat=settings.loop, preview=false){
     if(recordingBusy) {note('Finish recording before playing a sound.');return;}
     stop(); const ticket=version;
     await ensureAudio(); if(ticket!==version)return;
-    const clip=makePattern();
+    const clip=makePattern(preview);
     let buffer=clip;
     if(repeat){
       buffer=ctx.createBuffer(clip.numberOfChannels,clip.length+Math.round(settings.interval*ctx.sampleRate),ctx.sampleRate);
@@ -124,35 +129,36 @@
     source=ctx.createBufferSource(); source.buffer=buffer;source.loop=repeat;source.connect(gain);
     active=true;looping=repeat;
     source.onended=()=>{if(ticket===version){source.disconnect();source=null;active=false;looping=false;video.pause();update();}};
-    source.start();note();update();
+    source.start();settings.soundId=selectedId;persist();note();update();
   }
   async function next(){
-    const list=eligible(), i=list.findIndex(s=>s.id===$('soundSel').value);
-    $('soundSel').value=list[(i+1)%list.length].id;
-    wantedSound=settings.soundId=$('soundSel').value;persist();await play(looping);
+    const list=eligible(), i=list.findIndex(s=>s.id===selectedId);
+    selectedId=list[(i+1)%list.length].id;
+    await play(settings.loop);
   }
   const run=fn=> (...args)=>Promise.resolve().then(()=>fn(...args)).catch(e=>{stop();note(e.message||'That did not work. Please try again.');});
   function setupMediaSession(){
     if(!('mediaSession' in navigator))return;
-    for(const [action,handler] of Object.entries({play:run(()=>play(false)),pause:stop,stop,nexttrack:run(next)})){
+    for(const [action,handler] of Object.entries({play:run(()=>play(settings.loop)),pause:stop,stop,nexttrack:run(next)})){
       try{navigator.mediaSession.setActionHandler(action,handler);}catch{}
     }
   }
-  video.addEventListener('play',()=>{if(!internalPlay&&!active)run(()=>play(false))();});
+  video.addEventListener('play',()=>{if(!internalPlay&&!active)run(()=>play(settings.loop))();});
   video.addEventListener('pause',()=>{if(active)stop();});
   video.addEventListener('leavepictureinpicture',()=>{stop();update();});
   video.addEventListener('enterpictureinpicture',update);
   async function float(){
     await ensureAudio();
-    if(!videoAvailable)throw Error('Floating video is unavailable here. You can still use Play and Loop on this page.');
+    if(!videoAvailable)throw Error('Floating video is unavailable. Try Fullscreen fallback in Advanced.');
     await ensureVideo();
     try{
       if(document.pictureInPictureEnabled&&video.requestPictureInPicture){await video.requestPictureInPicture();}
       else if(video.webkitSupportsPresentationMode?.('picture-in-picture')){video.webkitSetPresentationMode('picture-in-picture');}
-      else throw Error('This browser does not offer floating video. Try Fullscreen video in Help, then press Home, or use the on-page controls.');
+      else throw Error('Floating video is unavailable. Try Fullscreen fallback in Advanced.');
     }catch(e){if(!active)video.pause();throw e;}
-    if(!active)video.pause();update();
-    note('Open your camera app. Tap the floating video to show Play and Next. Available controls depend on your phone.');
+    if(settings.loop) await play(true);
+    else if(!active)video.pause();
+    update();note();
   }
   async function fullscreen(){
     await ensureAudio();await ensureVideo();
@@ -161,8 +167,8 @@
       if(video.requestFullscreen)await video.requestFullscreen();
       else if(video.webkitEnterFullscreen)video.webkitEnterFullscreen();
       else throw Error('Fullscreen video is unavailable in this browser.');
-      if(!active) await play(true);
-      note('Press Home to try system picture-in-picture, then open your camera.');
+      if(!active) await play(settings.loop);
+      note('Press Home, then open your camera.');
     }finally{video.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1px;height:1px';}
   }
   // Existing database/key retained so earlier recordings survive this update.
@@ -170,16 +176,14 @@
     const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('dog-attention-pip-db',1);r.onupgradeneeded=()=>r.result.createObjectStore('recordings');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
     return new Promise((resolve,reject)=>{const tx=db.transaction('recordings',mode);const req=fn(tx.objectStore('recordings'));let result;req.onsuccess=()=>result=req.result;tx.oncomplete=()=>{db.close();resolve(result);};tx.onerror=tx.onabort=()=>{db.close();reject(tx.error||Error('Recording could not be saved.'));};});
   }
-  function showPreview(blob){
-    if(previewUrl)URL.revokeObjectURL(previewUrl);
-    previewUrl=URL.createObjectURL(blob);$('recPreviewAudio').src=previewUrl;$('recPreviewAudio').style.display='';
-    $('recPreviewAudio').volume=settings.volume;
-    ['recPreviewBtn','recSaveBtn','recDiscardBtn'].forEach(id=>$(id).disabled=false);
+  function showRecording(){
+    ['recSaveBtn','recDiscardBtn'].forEach(id=>$(id).disabled=false);
   }
   function recordUI(busy){
     recordingBusy=busy;$('recStartBtn').disabled=busy;$('recStopBtn').disabled=!busy;
-    ['onceBtn','nextBtn','toggleLoopBtn','pipLoopBtn'].forEach(id=>$(id).disabled=busy);
-    if(busy) ['recPreviewBtn','recSaveBtn','recDiscardBtn'].forEach(id=>$(id).disabled=true);
+    $('pipBtn').disabled=busy;$('fsBtn').disabled=busy;
+    for(const button of $('soundGrid').children) button.disabled=busy;
+    if(busy) ['recSaveBtn','recDiscardBtn'].forEach(id=>$(id).disabled=true);
   }
   function releaseMic(){clearTimeout(recTimer);micStream?.getTracks().forEach(t=>t.stop());micStream=null;}
   async function startRecording(){
@@ -199,16 +203,16 @@
         releaseMic();recordUI(false);
         const blob=new Blob(chunks,{type:current.mimeType});
         if(!blob.size){note('No sound was recorded. Please try again.');return;}
-        pendingBlob=blob;showPreview(blob);$('recPill').textContent='Recording: preview ready';note('Preview your recording, then choose Save & use.');
+        pendingBlob=blob;showRecording();$('recPill').textContent='Ready to save';note();
       };
       current.start();recTimer=setTimeout(()=>{if(current.state==='recording')current.stop();},10000);
-      $('recPill').textContent='Recording: now (max 10 s)';note('Recording… say a name or make a familiar sound.');
+      $('recPill').textContent='Recording…';note();
     }catch(e){releaseMic();recordUI(false);preparingRecording=false;note(e.name==='NotAllowedError'?'Microphone permission was denied. Allow it in your browser settings and try again.':e.message);}
   }
   function stopRecording(){
     preparingRecording=false;
     if(recorder?.state==='recording')recorder.stop();
-    else{releaseMic();recordUI(false);note('Recording cancelled.');}
+    else{releaseMic();recordUI(false);$('recPill').textContent='';note();}
   }
   async function saveRecording(){
     if(!pendingBlob)return;
@@ -216,17 +220,16 @@
     const blob=pendingBlob, decoded=await ctx.decodeAudioData(await blob.arrayBuffer());
     await dbOperation('readwrite',s=>s.put(blob,'custom'));
     stop();savedBlob=blob;decodedBlob=blob;recordedBuffer=decoded;refreshSounds();
-    wantedSound=settings.soundId=$('soundSel').value='recorded';persist();update();
-    $('recPill').textContent='Recording: saved';note('Saved on this device. Your recording is ready to play.');
+    selectedId='recorded';$('recPill').textContent='Saved';
+    await play(false,true);$('recordingMenu').open=false;
   }
   async function deleteRecording(){
     await dbOperation('readwrite',s=>s.delete('custom'));
     stop();pendingBlob=savedBlob=decodedBlob=recordedBuffer=null;
-    if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl=null;
-    $('recPreviewAudio').removeAttribute('src');$('recPreviewAudio').style.display='none';
-    ['recPreviewBtn','recSaveBtn','recDiscardBtn'].forEach(id=>$(id).disabled=true);
-    if(settings.soundId==='recorded')wantedSound=settings.soundId='chime';
-    refreshSounds();persist();$('recPill').textContent='Recording: none';note('Recording deleted from this device.');
+    ['recSaveBtn','recDiscardBtn'].forEach(id=>$(id).disabled=true);
+    if(selectedId==='recorded')selectedId='chime';
+    if(settings.soundId==='recorded')settings.soundId='chime';
+    refreshSounds();persist();update();$('recPill').textContent='';note();
   }
   function draw(){
     const g=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
@@ -234,34 +237,34 @@
     g.font='64px system-ui';g.fillText('🐶   🐱   👶',w/2,130);
     g.fillStyle=active?'#7bd389':'#f2f4f8';g.font='bold 36px system-ui';g.fillText(active?(looping?'Sound · pause · repeat':'Look here!'):'Ready for your photo',w/2,218);
     g.fillStyle='#aab2c5';g.font='22px system-ui';
-    g.fillText(eligible().find(s=>s.id===$('soundSel').value)?.name||'Choose a sound',w/2,275);
+    g.fillText(eligible().find(s=>s.id===selectedId)?.name||'Choose a sound',w/2,275);
     if(videoAvailable)stream.getVideoTracks()[0]?.requestFrame?.();
   }
+  if(!sounds.some(sound=>sound.id===selectedId)&&selectedId!=='recorded')selectedId='chime';
+  settings.loop=settings.loop===true;
   refreshSounds();$('intervalInp').value=settings.interval;$('volRange').value=settings.volume;
-  $('patternSel').value=['single','double','burst','random'].includes(settings.pattern)?settings.pattern:'single';
-  $('soundSel').addEventListener('change',()=>{stop();wantedSound=settings.soundId=$('soundSel').value;persist();update();});
+  $('loopInp').checked=settings.loop;
+  $('patternSel').value=['single','double','burst'].includes(settings.pattern)?settings.pattern:'single';
   $('patternSel').addEventListener('change',()=>{const wasLooping=looping;settings.pattern=$('patternSel').value;persist();if(wasLooping)run(()=>play(true))();});
-  $('intervalInp').addEventListener('change',()=>{settings.interval=clamp($('intervalInp').value||3,0.5,30);$('intervalInp').value=settings.interval;persist();if(looping)run(()=>play(true))();});
-  $('volRange').addEventListener('input',()=>{settings.volume=clamp($('volRange').value,0,1);if(gain)gain.gain.setTargetAtTime(settings.volume,ctx.currentTime,0.01);$('recPreviewAudio').volume=settings.volume;persist();});
-  $('onceBtn').onclick=run(()=>play());$('nextBtn').onclick=run(next);$('stopBtn').onclick=()=>{stop();if(recordingBusy)stopRecording();note();};
-  $('toggleLoopBtn').onclick=run(()=>looping?stop():play(true));$('pipBtn').onclick=run(float);
-  $('pipLoopBtn').onclick=run(async()=>{await float();await play(true);});$('fsBtn').onclick=run(fullscreen);
-  $('recStartBtn').onclick=startRecording;$('recStopBtn').onclick=stopRecording;
-  $('recPreviewBtn').onclick=run(async()=>{stop();$('recPreviewAudio').currentTime=0;await $('recPreviewAudio').play();});
-  $('recPreviewAudio').addEventListener('play',()=>{if(active){stop();$('recPreviewAudio').play().catch(()=>{});}});
-  $('recSaveBtn').onclick=run(saveRecording);$('recDiscardBtn').onclick=run(deleteRecording);
-  window.addEventListener('keydown',e=>{
-    if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||e.target.closest('input,select,textarea,button,a,[contenteditable]'))return;
-    const actions={' ':()=>play(),n:next,l:()=>looping?stop():play(true),s:stop,p:float,f:fullscreen};
-    const action=actions[e.key.toLowerCase()];if(action){e.preventDefault();run(action)();}
+  $('loopInp').addEventListener('change',()=>{
+    settings.loop=$('loopInp').checked;persist();
+    if(active&&document.pictureInPictureElement)run(()=>play(settings.loop))();
+    else if(looping)stop();
   });
+  $('intervalInp').addEventListener('change',()=>{settings.interval=clamp($('intervalInp').value||3,0.5,30);$('intervalInp').value=settings.interval;persist();if(looping)run(()=>play(true))();});
+  $('volRange').addEventListener('input',()=>{settings.volume=clamp($('volRange').value,0,1);if(gain)gain.gain.setTargetAtTime(settings.volume,ctx.currentTime,0.01);persist();});
+  $('pipBtn').onclick=run(float);$('fsBtn').onclick=run(fullscreen);
+  $('recStartBtn').onclick=startRecording;$('recStopBtn').onclick=stopRecording;
+  $('recSaveBtn').onclick=run(saveRecording);$('recDiscardBtn').onclick=run(deleteRecording);
+  $('recordingMenu').addEventListener('toggle',()=>{if(!$('recordingMenu').open&&recordingBusy)stopRecording();});
   window.addEventListener('pagehide',()=>{stop();if(recordingBusy)stopRecording();});
   restoring=dbOperation('readonly',s=>s.get('custom')).then(blob=>{
-    if(!blob)return;savedBlob=pendingBlob=blob;showPreview(blob);$('recPill').textContent='Recording: saved';
+    if(!blob){if(selectedId==='recorded'){selectedId='chime';refreshSounds();update();}return;}
+    savedBlob=pendingBlob=blob;showRecording();$('recPill').textContent='Saved';
     // Decode without requesting microphone permission or resuming an AudioContext.
     const AC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
     if(AC)return blob.arrayBuffer().then(arr=>new AC(1,1,48000).decodeAudioData(arr)).then(buffer=>{
-      recordedBuffer=buffer;refreshSounds();if(wantedSound==='recorded')$('soundSel').value='recorded';update();
+      recordedBuffer=buffer;refreshSounds();update();
     });
   }).catch(()=>{});
   if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>note('Offline setup is unavailable. The site still works while connected.'));

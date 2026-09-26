@@ -1,257 +1,81 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0f1115" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
   <title>Look here! • Photo sounds</title>
-
-  <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <meta name="description" content="Short sounds and your own voice, with a floating player to help catch attention for a photo.">
-
+  <meta name="description" content="Tap a sound, then open the floating player for your photo.">
   <style>
-    :root{
-      --bg:#0f1115;
-      --panel:#141824;
-      --panel2:#0f1420;
-      --text:#f2f4f8;
-      --muted:#aab2c5;
-      --accent:#7bd389;
-      --danger:#ff6b6b;
-      --warn:#ffd166;
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
-      --radius: 18px;
-      --tap: 54px;
-      --gap: 12px;
-      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-    }
-    * { box-sizing: border-box; }
-    body{
-      margin:0; font-family:var(--font); color:var(--text); background:radial-gradient(1200px 800px at 50% -10%, #1a2440 0%, var(--bg) 45%);
-      -webkit-tap-highlight-color: transparent;
-      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-    }
-    header{
-      padding: 18px 16px 10px;
-      position: sticky; top:0; backdrop-filter: blur(10px);
-      background: linear-gradient(to bottom, rgba(15,17,21,.92), rgba(15,17,21,.55));
-      border-bottom: 1px solid rgba(255,255,255,.06);
-      z-index: 5;
-    }
-    h1{ margin:0; font-size: 28px; letter-spacing:.2px;}
-    .sub{ margin-top: 6px; color:var(--muted); font-size: 16px; line-height:1.35;}
-    main{ padding: 12px 16px 22px; max-width: 920px; margin: 0 auto; }
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap: var(--gap);
-    }
-    @media (min-width: 900px){
-      .grid{ grid-template-columns: 1.2fr .8fr; align-items:start; }
-    }
-    .card{
-      background: linear-gradient(180deg, rgba(20,24,36,.95), rgba(15,20,32,.95));
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 14px;
-    }
-    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    label{ font-size: 14px; color: var(--muted); display:block; margin-bottom: 6px; }
-    select, input[type="number"], input[type="range"], button, .pill{
-      width:100%;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(10,12,18,.55);
-      color: var(--text);
-      padding: 12px 12px;
-      font-size: 16px;
-      outline-offset: 4px;
-    }
-    input[type="number"]{ -moz-appearance:textfield; }
-    input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
-    input[type="range"]{ padding: 14px 12px; }
-    button{
-      min-height: var(--tap);
-      cursor:pointer;
-      background: linear-gradient(180deg, rgba(123,211,137,.18), rgba(123,211,137,.10));
-    }
-    button.secondary{ background: rgba(255,255,255,.06); }
-    button.danger{ background: linear-gradient(180deg, rgba(255,107,107,.22), rgba(255,107,107,.08)); }
-    button:disabled{ opacity:.45; cursor:not-allowed; }
-    button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);}
-    .notice{min-height:24px; margin:12px 0; line-height:1.5; color:var(--warn);}
-    #onceBtn{font-size:20px; font-weight:700; min-height:72px; background:var(--accent); color:#0f1115;}
-    #nextBtn{min-height:72px;}
-    button:active{ transform: translateY(1px); }
-    .two{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .three{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    .status{
-      display:flex; gap:8px; flex-wrap:wrap; align-items:center;
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-    .pill{
-      width:auto;
-      padding: 8px 10px;
-      font-size:14px;
-      background: rgba(255,255,255,.05);
-    }
-    .pill.good{ border-color: rgba(123,211,137,.35); color: #b9f5c2; }
-    .pill.warn{ border-color: rgba(255,209,102,.35); color: #ffe4a6; }
-    .pill.bad{ border-color: rgba(255,107,107,.35); color: #ffb3b3; }
-    .hint{
-      color: var(--muted);
-      font-size: 14px;
-      line-height:1.4;
-      margin-top: 8px;
-    }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    details{ margin-top: 10px; }
-    summary{ cursor:pointer; color: var(--muted); }
-    .divider{ height:1px; background: rgba(255,255,255,.08); margin: 12px 0; }
-    .small{ font-size: 14px; color: var(--muted); }
-    .canvasWrap{
-      display:flex; align-items:center; justify-content:center;
-      border-radius: var(--radius);
-      background: radial-gradient(600px 220px at 50% 40%, rgba(123,211,137,.18), rgba(0,0,0,0));
-      border: 1px dashed rgba(255,255,255,.12);
-      padding: 12px;
-    }
-    canvas{ width:100%; max-width: 520px; aspect-ratio: 16 / 9; border-radius: 16px; background: rgba(0,0,0,.20); }
-    .kbd{
-      border: 1px solid rgba(255,255,255,.20);
-      border-bottom-width: 2px;
-      border-radius: 10px;
-      padding: 2px 6px;
-      font-size: 14px;
-      color: var(--text);
-      background: rgba(255,255,255,.05);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-    .recordRow button{ width:auto; flex:1; }
-    .recordRow{ display:flex; gap:10px; flex-wrap:wrap; }
-    audio{ width:100%; margin-top: 8px; }
-    .mutedLink{ color:#c8d0ff; text-decoration: none; }
+    :root{color-scheme:dark;--bg:#0f1115;--panel:#191e2a;--text:#f2f4f8;--muted:#aab2c5;--accent:#7bd389;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text);background:var(--bg)}
+    *{box-sizing:border-box}
+    body{margin:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+    main{width:min(100%,480px);margin:0 auto;padding:36px 20px}
+    h1{font-size:1.75rem;margin:0 0 28px;letter-spacing:-.04em}
+    button,input,select{font:inherit}
+    button,summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent;cursor:pointer}
+    button{min-height:48px;border:1px solid #343c4f;border-radius:14px;background:var(--panel);color:var(--text);padding:12px 16px}
+    button:disabled{opacity:.4;cursor:not-allowed}
+    button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+    .sounds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:24px}
+    .sound{aspect-ratio:1;padding:0;font-size:2rem;border:2px solid transparent;background:#1a202c}
+    .sound[aria-pressed="true"]{background:#344b3f;border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+    #pipBtn{width:100%;min-height:58px;background:var(--accent);color:#101b14;border:0;font-weight:650;margin-bottom:24px}
+    details{border-top:1px solid #2a3040}
+    summary{padding:18px 0;font-size:1rem;color:var(--muted)}
+    .panel{padding:0 0 20px;display:grid;gap:18px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .row button{flex:1}
+    label{display:grid;gap:8px;font-size:.95rem;color:var(--muted)}
+    .toggle{display:flex;align-items:center;justify-content:space-between;min-height:44px}
+    input[type="checkbox"]{width:24px;height:24px;accent-color:var(--accent)}
+    input[type="range"]{width:100%;accent-color:var(--accent)}
+    input[type="number"],select{width:100%;min-height:48px;padding:10px 12px;color:var(--text);background:var(--panel);border:1px solid #343c4f;border-radius:10px}
+    .hint,#recPill{margin:0;font-size:.875rem;line-height:1.5;color:var(--muted)}
+    #notice{font-size:.875rem;line-height:1.5;color:#ffd166;margin:0 0 20px}
+    #notice:empty,#recPill:empty{display:none}
+    .delete{color:#ffaaaa}
+    .media{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;pointer-events:none}
+    @media(max-width:340px){main{padding:24px 14px}.sounds{gap:8px}.sound{font-size:1.6rem}}
   </style>
 </head>
 <body>
-<header>
-  <h1>Look here! <span style="color:var(--accent)">●</span></h1>
-  <div class="sub">A little sound. A moment for your photo. For dogs, cats &amp; babies.</div>
-</header>
-
 <main>
-  <div class="grid">
-    <section class="card">
+  <h1>Look here!</h1>
+  <div id="soundGrid" class="sounds" role="group" aria-label="Sounds — tap to listen"></div>
+  <button id="pipBtn">▣ Open floating player</button>
+  <div id="notice" role="status" aria-live="polite"></div>
+
+  <details id="recordingMenu">
+    <summary>Recording</summary>
+    <div class="panel">
+      <p class="hint">Up to 10 seconds · saved on this device</p>
       <div class="row">
-        <div style="flex:1; min-width: 210px;">
-          <label for="soundSel">Sound</label>
-          <select id="soundSel"></select>
-        </div>
-        <div style="flex:1; min-width: 210px;">
-          <label for="patternSel">Pattern</label>
-          <select id="patternSel">
-            <option value="single">Single</option>
-            <option value="double">Double</option>
-            <option value="burst">Burst</option>
-            <option value="random">Random (per trigger)</option>
-          </select>
-        </div>
+        <button id="recStartBtn">● Record</button>
+        <button id="recStopBtn" disabled>Finish</button>
       </div>
-
-      <div class="row" style="margin-top: 10px;">
-        <div style="flex:1; min-width: 210px;">
-          <label for="intervalInp">Pause after sound (seconds)</label>
-          <input id="intervalInp" type="number" min="0.5" max="30" step="0.5" inputmode="decimal" />
-          <div class="hint">Silence after the whole sound finishes. Choose 0.5–30 seconds.</div>
-        </div>
-        <div style="flex:1; min-width: 210px;">
-          <label for="volRange">Volume</label>
-          <input id="volRange" type="range" min="0" max="1" step="0.01" />
-          <div class="hint">Start quietly. Device volume also affects loudness.</div>
-        </div>
+      <div class="row">
+        <button id="recSaveBtn" disabled>Save &amp; use</button>
+        <button id="recDiscardBtn" class="delete" disabled>Delete</button>
       </div>
-
-      <div class="divider"></div>
-
-      <div class="two">
-        <button id="onceBtn" title="Shortcut: Space">▶ Play once</button>
-        <button id="nextBtn" class="secondary" title="Shortcut: N">⏭ Next sound</button>
-      </div>
-
-      <div class="two" style="margin-top: 10px;">
-        <button id="stopBtn" class="danger" title="Shortcut: S">⏹ Stop</button>
-        <button id="pipBtn" class="secondary" title="Shortcut: P">▣ Float over camera</button>
-      </div>
-
-      <div class="two" style="margin-top: 10px;">
-        <button id="toggleLoopBtn" class="secondary" title="Shortcut: L">⟳ Start loop</button>
-        <button id="pipLoopBtn">▣ Float + loop</button>
-      </div>
-
-      <div class="notice" id="notice" role="status" aria-live="polite"></div>
-      <div class="status" id="statusRow">
-        <span class="pill" id="ctxPill">Audio: ?</span>
-        <span class="pill" id="loopPill">Loop: stopped</span>
-        <span class="pill" id="pipPill">PiP: no</span>
-        <span class="pill" id="recPill">Recording: none</span>
-      </div>
-
-      <details>
-        <summary>Help / Tips</summary>
-        <div class="hint">
-          <ul>
-            <li>Pick a sound, then tap <b>Float over camera</b> and open your camera app. Tap the floating video to reveal its controls.</li>
-            <li>If floating video is unavailable, try <button id="fsBtn" class="secondary">Fullscreen video</button> then press Home. Support depends on your browser and phone; the on-page controls always remain available.</li>
-            <li>System media controls (lock screen / PiP controls) map to: Play = play the selected sound, Pause = stop, Next = switch sound and play. Start loop on this page when you want repeats. Some browsers omit Next.</li>
-            <li>Desktop shortcuts: <span class="kbd">Space</span> play once, <span class="kbd">N</span> next sound, <span class="kbd">L</span> loop, <span class="kbd">S</span> stop, <span class="kbd">P</span> PiP, <span class="kbd">F</span> fullscreen.</li>
-          </ul>
-        </div>
-      </details>
-    </section>
-
-    <aside class="card">
-      <div class="canvasWrap">
-        <canvas id="pipCanvas" width="640" height="360" aria-label="PiP animation canvas"></canvas>
-      </div>
-      <div class="hint">
-        Move the floating player close to your camera lens. Play a sound when you are ready to take the photo.
-      </div>
-
-      <div class="divider"></div>
-
-      <h3 style="margin:0 0 8px; font-size: 16px;">🎙️ Record custom sound</h3>
-      <div class="hint" id="micExplain">
-        Microphone audio is used <b>only locally</b> to record a short clip (max 10 seconds). Nothing is uploaded.
-      </div>
-
-      <div class="recordRow" style="margin-top: 10px;">
-        <button id="recStartBtn" class="secondary">🎙️ Start recording</button>
-        <button id="recStopBtn" class="secondary" disabled>⏹ Stop</button>
-      </div>
-      <div class="recordRow" style="margin-top: 10px;">
-        <button id="recPreviewBtn" class="secondary" disabled>▶ Preview</button>
-        <button id="recSaveBtn" disabled>💾 Save & use</button>
-        <button id="recDiscardBtn" class="danger" disabled>Delete recording</button>
-      </div>
-      <audio id="recPreviewAudio" controls style="display:none;"></audio>
-
-      <div class="divider"></div>
-
-      <div class="small">Add to your home screen for quick access. Sounds and saved recordings work offline after your first visit.</div>
-      <div class="hint">Use soft chimes or a familiar recorded voice for a baby. Stop if the sound is unwelcome. Your recordings stay in this browser.</div>
-    </aside>
-  </div>
-
-  <!-- Hidden PiP video (must be a real <video>, not audio) -->
-  <video id="pipVideo" playsinline style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;" aria-hidden="true"></video>
-
-<script src="app.js" defer></script>
+      <p id="recPill" role="status" aria-live="polite"></p>
+    </div>
+  </details>
+  <details>
+    <summary>Advanced</summary>
+    <div class="panel">
+      <label class="toggle" for="loopInp">Loop in player <input id="loopInp" type="checkbox"></label>
+      <label for="intervalInp">Pause between sounds (seconds)<input id="intervalInp" type="number" min="0.5" max="30" step="0.5" inputmode="decimal"></label>
+      <label for="volRange">Volume<input id="volRange" type="range" min="0" max="1" step="0.01"></label>
+      <label for="patternSel">Pattern<select id="patternSel"><option value="single">Single</option><option value="double">Double</option><option value="burst">Burst</option></select></label>
+      <button id="fsBtn">Fullscreen fallback</button>
+    </div>
+  </details>
+  <canvas id="pipCanvas" class="media" width="640" height="360" aria-hidden="true"></canvas>
+  <video id="pipVideo" class="media" playsinline aria-hidden="true"></video>
 </main>
+<script src="app.js" defer></script>
 </body>
 </html>
