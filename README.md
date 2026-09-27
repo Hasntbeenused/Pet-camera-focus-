@@ -7,7 +7,7 @@ A small, dependency-free website for playing attention sounds while taking a pho
 Open https://hasntbeenused.github.io/Pet-camera-focus-/ in your phone's browser.
 
 1. Tap a sound icon to hear it once. The highlighted icon is the current sound, remembered on this device.
-2. Tap **Open floating player** and switch to your camera app.
+2. Tap **Open floating player** and switch to your camera app. The floating player displays a light card with the sound icon and **Press ▶ to play**. Tap the player to reveal its native controls.
 3. In the floating player, **Play** plays the highlighted sound; **Next** selects the next sound and plays it. **Pause** stops playback.
 4. Open **Advanced** for **Loop in player**, 0.5–30-second pauses, volume, and single/double/burst patterns. Sound-icon previews always play just once, regardless of these settings. With Loop enabled, opening the floating player starts repeating; its Play button also respects the loop setting.
 5. Open **Recording**, record up to ten seconds, and choose **Save & use**. The recording plays once and appears as a microphone icon. The recording menu then closes. One custom recording is kept in this browser; saving another replaces it. **Delete** removes it. Closing the menu while recording ends the recording and releases the microphone.

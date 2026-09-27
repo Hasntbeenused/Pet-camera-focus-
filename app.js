@@ -11,6 +11,7 @@
   let stream, videoAvailable=false, recordedBuffer, savedBlob, pendingBlob;
   let recorder, micStream, recTimer, recordingBusy=false, preparingRecording=false;
   let restoring, decodedBlob, selectedId=settings.soundId;
+  let idleFrameCallback=null, idlePauseTimer=null;
   const sounds = [
     {id:'chime',icon:'🔔',name:'Soft chime',duration:0.9},
     {id:'squeak',icon:'🦆',name:'Squeaky toy',duration:0.38},
@@ -72,14 +73,40 @@
     }
   }
   async function ensureVideo(){
+    cancelIdlePause();
     if(!videoAvailable) return;
     internalPlay=true;
     try{ await video.play(); } finally {internalPlay=false;}
   }
+  function cancelIdlePause(){
+    clearTimeout(idlePauseTimer);idlePauseTimer=null;
+    if(idleFrameCallback!==null){video.cancelVideoFrameCallback?.(idleFrameCallback);idleFrameCallback=null;}
+  }
+  function pauseOnIdleFrame(){
+    cancelIdlePause();
+    if(video.paused||!videoAvailable){draw();return;}
+    const ticket=version;
+    const finish=()=>{
+      cancelIdlePause();
+      if(ticket===version&&!active)video.pause();
+    };
+    // Keep audio stopped, but let the idle card reach the video compositor
+    // before freezing the video. Two frames avoid retaining a queued old frame.
+    if(video.requestVideoFrameCallback){
+      idleFrameCallback=video.requestVideoFrameCallback(()=>{
+        if(ticket!==version||active)return;
+        idleFrameCallback=video.requestVideoFrameCallback(finish);
+        draw();
+      });
+    }
+    draw();
+    idlePauseTimer=setTimeout(finish,500);
+  }
   function stop(){
+    cancelIdlePause();
     version++; active=false; looping=false;
     if(source){source.onended=null;try{source.stop();}catch{}source.disconnect();source=null;}
-    video.pause(); update();
+    update();pauseOnIdleFrame();
   }
   function makeSound(id){
     if(id==='recorded' && recordedBuffer) return recordedBuffer;
@@ -128,7 +155,7 @@
     await ensureVideo(); if(ticket!==version) {if(!active)video.pause();return;}
     source=ctx.createBufferSource(); source.buffer=buffer;source.loop=repeat;source.connect(gain);
     active=true;looping=repeat;
-    source.onended=()=>{if(ticket===version){source.disconnect();source=null;active=false;looping=false;video.pause();update();}};
+    source.onended=()=>{if(ticket===version){source.disconnect();source=null;active=false;looping=false;update();pauseOnIdleFrame();}};
     source.start();settings.soundId=selectedId;persist();note();update();
   }
   async function next(){
@@ -157,7 +184,7 @@
       else throw Error('Floating video is unavailable. Try Fullscreen fallback in Advanced.');
     }catch(e){if(!active)video.pause();throw e;}
     if(settings.loop) await play(true);
-    else if(!active)video.pause();
+    else if(!active)pauseOnIdleFrame();
     update();note();
   }
   async function fullscreen(){
@@ -233,11 +260,16 @@
   }
   function draw(){
     const g=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
-    g.fillStyle='#0b0f18';g.fillRect(0,0,w,h);g.textAlign='center';
-    g.font='64px system-ui';g.fillText('🐶   🐱   👶',w/2,130);
-    g.fillStyle=active?'#7bd389':'#f2f4f8';g.font='bold 36px system-ui';g.fillText(active?(looping?'Sound · pause · repeat':'Look here!'):'Ready for your photo',w/2,218);
-    g.fillStyle='#aab2c5';g.font='22px system-ui';
-    g.fillText(eligible().find(s=>s.id===selectedId)?.name||'Choose a sound',w/2,275);
+    const sound=eligible().find(s=>s.id===selectedId);
+    // The instruction remains in every frame, including the final frame a
+    // browser might retain when its own Pause control freezes the stream.
+    g.fillStyle='#e3efe7';g.fillRect(0,0,w,h);g.textAlign='center';
+    g.font='76px system-ui';g.fillText(sound?.icon||'🔔',w/2,112);
+    g.fillStyle='#142c20';g.font='bold 42px system-ui';
+    g.fillText('Press ▶ to play',w/2,190);
+    g.font='26px system-ui';g.fillText(sound?.name||'Look here!',w/2,239);
+    g.fillStyle='#465e50';g.font='22px system-ui';
+    g.fillText(active?(looping?'Repeating':'Playing'):'Tap player to show controls',w/2,302);
     if(videoAvailable)stream.getVideoTracks()[0]?.requestFrame?.();
   }
   if(!sounds.some(sound=>sound.id===selectedId)&&selectedId!=='recorded')selectedId='chime';
